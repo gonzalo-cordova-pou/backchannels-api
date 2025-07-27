@@ -2,8 +2,7 @@
 name = "backchannels-api"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
-readme = "README.md"
+authors = ["Gonzalo Cordova <gonzalocp6@gmail.com>"]
 packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
@@ -15,6 +14,11 @@ pydantic-settings = "^2.10.1"
 uvicorn = {extras = ["standard"], version = "^0.35.0"}
 transformers = {extras = ["torch"], version = "^4.54.0"}
 torch = "^2.7.1"
+aiohttp = "^3.12.14"
+optimum = "^1.26.1"
+onnx = "^1.18.0"
+onnxruntime = "^1.22.1"
+boto3 = "^1.34.0"
 
 
 [build-system]
