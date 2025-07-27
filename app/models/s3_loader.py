@@ -155,3 +155,26 @@ class S3ModelLoader:
 
         except ClientError:
             return False
+
+    def load_from_s3(self, model_type: str, local_dir: str) -> bool:
+        """
+        Generic method to load model from S3 if local weights are not available
+
+        Args:
+            model_type: Type of model for S3 key prefix
+            local_dir: Local directory to save model files
+
+        Returns:
+            True if model was successfully loaded from S3, False otherwise
+        """
+        from app.models.constants import validate_weights_directory
+
+        # Check if local weights exist and are valid
+        if validate_weights_directory(str(local_dir)):
+            return True
+
+        # Try to download from S3
+        if self.download_model_from_s3(model_type, str(local_dir)):
+            return True
+
+        return False

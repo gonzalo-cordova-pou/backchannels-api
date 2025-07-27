@@ -8,8 +8,15 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # Model fallback configuration
+      - PREFERRED_MODEL=distilbert-onnx
+      - FALLBACK_MODEL=baseline
+      - ENABLE_FALLBACK=true
+      # Model configuration
       - MODEL_THRESHOLD=0.949
+      # API configuration
       - MAX_BATCH_SIZE=32
+      # Logging configuration
       - LOG_LEVEL=INFO
     volumes:
       # Mount logs directory for persistence

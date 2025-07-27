@@ -31,8 +31,3 @@ class ModelFactory:
             return DistilBertOnnxModel.create_from_weights(threshold=threshold)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
-
-    @staticmethod
-    def create_default_model(threshold: float = 0.5) -> BackchannelModel:
-        """Create the default model based on settings"""
-        return BaselineModel.create_with_default_terms()

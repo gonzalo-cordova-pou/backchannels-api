@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 from typing import List, Optional
@@ -6,12 +7,15 @@ import torch
 from transformers import DistilBertForSequenceClassification, DistilBertTokenizer
 
 from app.models.base import BackchannelModel, PredictionResult
-from app.models.constants import DISTILBERT_WEIGHTS_DIR, validate_weights_directory
+from app.models.constants import DISTILBERT_WEIGHTS_DIR
 from app.models.s3_loader import S3ModelLoader
 
 
 class DistilBertModel(BackchannelModel, S3ModelLoader):
     """DistilBERT-based backchannel detection model"""
+
+    # Class attribute for S3 model type
+    S3_MODEL_TYPE = "distilbert"
 
     def __init__(
         self, model_path: str = DISTILBERT_WEIGHTS_DIR, threshold: float = 0.5
@@ -45,31 +49,38 @@ class DistilBertModel(BackchannelModel, S3ModelLoader):
             self.model.eval()
 
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to load DistilBERT model from {self.model_path}: {e}"
+            # Try to load from S3 if local loading fails
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Failed to load DistilBERT model from local path "
+                f"{self.model_path}: {e}"
             )
+            logger.info("Attempting to load from S3...")
 
-    def load_from_s3(self, model_type: str = "distilbert") -> bool:
+            if self.load_from_s3():
+                logger.info("Successfully loaded DistilBERT model from S3")
+                return
+            else:
+                raise RuntimeError(
+                    f"Failed to load DistilBERT model from {self.model_path} "
+                    f"or S3: {e}"
+                )
+
+    def load_from_s3(self, model_type: str = None, local_dir: str = None) -> bool:
         """
         Load model from S3 if local weights are not available
 
         Args:
-            model_type: Type of model for S3 key prefix
+            model_type: Type of model for S3 key prefix (defaults to S3_MODEL_TYPE)
+            local_dir: Local directory to save model files (defaults to model_path)
 
         Returns:
             True if model was successfully loaded from S3, False otherwise
         """
-        # Check if local weights exist and are valid
-        if validate_weights_directory(self.model_path):
-            return True
-
-        # Try to download from S3
-        if self.download_model_from_s3(model_type, self.model_path):
-            # Reload the model after downloading
-            self._load_model()
-            return True
-
-        return False
+        # Use the generic S3 loading method from the base class
+        model_type = model_type or self.S3_MODEL_TYPE
+        local_dir = local_dir or str(self.model_path)
+        return super().load_from_s3(model_type, local_dir)
 
     @property
     def model_name(self) -> str:

@@ -182,6 +182,11 @@ Simple keyword-based perfect match model for comparison and fallback.
 The API supports configuration via environment variables:
 
 ```bash
+# Model fallback configuration
+PREFERRED_MODEL=distilbert-onnx  # Preferred model type (distilbert-onnx, distilbert, baseline)
+FALLBACK_MODEL=baseline          # Fallback model type (distilbert-onnx, distilbert, baseline)
+ENABLE_FALLBACK=true             # Whether to enable fallback mechanism (true/false)
+
 # Model configuration
 MODEL_THRESHOLD=0.9  # Classification threshold (0.0 to 1.0)
 
@@ -190,6 +195,43 @@ MAX_BATCH_SIZE=32
 
 # Logging
 LOG_LEVEL=INFO
+
+# S3 configuration (for production model loading)
+S3_BUCKET_NAME=backchannels-models
+S3_MODEL_PREFIX=models
+S3_REGION=us-east-1
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+```
+
+### Model Fallback Configuration
+
+The API includes a configurable fallback mechanism that can be controlled via environment variables:
+
+- **`PREFERRED_MODEL`**: The primary model to attempt loading first
+- **`FALLBACK_MODEL`**: The model to use if the preferred model fails to load
+- **`ENABLE_FALLBACK`**: Whether to enable the fallback mechanism (default: `true`)
+
+**Example configurations:**
+
+```bash
+# Use DistilBERT ONNX with baseline fallback (default)
+PREFERRED_MODEL=distilbert-onnx
+FALLBACK_MODEL=baseline
+ENABLE_FALLBACK=true
+
+# Use regular DistilBERT with baseline fallback
+PREFERRED_MODEL=distilbert
+FALLBACK_MODEL=baseline
+ENABLE_FALLBACK=true
+
+# Disable fallback and use only baseline
+PREFERRED_MODEL=baseline
+ENABLE_FALLBACK=false
+
+# Use only DistilBERT ONNX (no fallback)
+PREFERRED_MODEL=distilbert-onnx
+ENABLE_FALLBACK=false
 ```
 
 ## API Endpoints
@@ -222,6 +264,9 @@ docker build -t backchannels-api .
 
 # Run the container
 docker run -p 8000:8000 \
+  -e PREFERRED_MODEL=distilbert-onnx \
+  -e FALLBACK_MODEL=baseline \
+  -e ENABLE_FALLBACK=true \
   -e MODEL_THRESHOLD=0.5 \
   -e LOG_LEVEL=INFO \
   backchannels-api

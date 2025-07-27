@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 
 from app.api.routes import router
+from app.config import settings
 from app.core.logging import setup_logging
 from app.models.predictor import BackchannelPredictor
 
@@ -24,13 +25,22 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Backchannel Detection API")
 
     try:
-        # Use ONNX DistilBERT model for better performance
-        predictor = BackchannelPredictor.from_config({"type": "distilbert-onnx"})
-
-        logger.info(f"Model loaded: {predictor.model.model_name}")
+        if settings.enable_fallback:
+            # Use configurable preferred and fallback models
+            predictor = BackchannelPredictor.with_fallback(
+                preferred_config={"type": settings.preferred_model},
+                fallback_config={"type": settings.fallback_model},
+            )
+            logger.info(f"Model loaded with fallback: {predictor.model.model_name}")
+        else:
+            # Use single model without fallback
+            predictor = BackchannelPredictor.from_config(
+                {"type": settings.preferred_model}
+            )
+            logger.info(f"Model loaded: {predictor.model.model_name}")
 
     except Exception as e:
-        logger.error(f"Failed to load model: {e}")
+        logger.error(f"Failed to load any model: {e}")
         raise
 
     yield

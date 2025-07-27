@@ -1,11 +1,14 @@
 import asyncio
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
-from app.config import settings
 from app.models.base import BackchannelModel
+from app.models.baseline import BaselineModel
 from app.models.factory import ModelFactory
+
+logger = logging.getLogger(__name__)
 
 
 class BackchannelPredictor:
@@ -13,10 +16,8 @@ class BackchannelPredictor:
 
     def __init__(self, model: Optional[BackchannelModel] = None):
         if model is None:
-            # Use threshold from settings
-            model = ModelFactory.create_default_model(
-                threshold=settings.model_threshold
-            )
+            # Use baseline model as default if no model is provided
+            model = BaselineModel.create_with_default_terms()
 
         self.model = model
         self._executor = ThreadPoolExecutor(max_workers=4)  # Adjust based on your needs
@@ -87,6 +88,66 @@ class BackchannelPredictor:
         """Create predictor from configuration"""
         model = ModelFactory.create_model(config)
         return cls(model)
+
+    @classmethod
+    def with_fallback(
+        cls, preferred_config: dict, fallback_config: Optional[dict] = None
+    ) -> "BackchannelPredictor":
+        """
+        Create predictor with fallback mechanism.
+
+        Args:
+            preferred_config: Configuration for the preferred model
+            fallback_config: Configuration for the fallback model (defaults to baseline)
+
+        Returns:
+            BackchannelPredictor with the successfully loaded model
+        """
+        if fallback_config is None:
+            fallback_config = {"type": "baseline"}
+
+        try:
+            # Try to load the preferred model
+            preferred_type = preferred_config.get("type", "unknown")
+            logger.info(f"Attempting to load preferred model: {preferred_type}")
+            model = ModelFactory.create_model(preferred_config)
+
+            # Check if the model is ready
+            if model.is_ready():
+                logger.info(f"Successfully loaded preferred model: {model.model_name}")
+                return cls(model)
+            else:
+                raise RuntimeError(f"Preferred model {model.model_name} is not ready")
+
+        except Exception as e:
+            preferred_type = preferred_config.get("type", "unknown")
+            logger.warning(f"Failed to load preferred model {preferred_type}: {e}")
+            logger.info("Falling back to baseline model")
+
+            try:
+                # Try to load the fallback model
+                fallback_model = ModelFactory.create_model(fallback_config)
+
+                if fallback_model.is_ready():
+                    logger.info(
+                        "Successfully loaded"
+                        f"fallback model: {fallback_model.model_name}"
+                    )
+                    return cls(fallback_model)
+                else:
+                    raise RuntimeError(
+                        f"Fallback model {fallback_model.model_name} is not ready"
+                    )
+
+            except Exception as fallback_error:
+                logger.error(
+                    "Failed to load both preferred and "
+                    f"fallback models: {fallback_error}"
+                )
+                raise RuntimeError(
+                    f"Unable to load any model. Preferred model failed: {e}. "
+                    f"Fallback model failed: {fallback_error}"
+                )
 
     def __del__(self):
         """Cleanup thread pool executor"""

@@ -3,8 +3,10 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
 
-    # Model selection
-    model_type: str = "auto"  # "auto", "baseline"
+    # Model fallback configuration
+    preferred_model: str = "distilbert-onnx"  # Preferred model type
+    fallback_model: str = "baseline"  # Fallback model type
+    enable_fallback: bool = True  # Whether to enable fallback mechanism
 
     # Model configuration
     model_threshold: float = (
