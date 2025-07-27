@@ -3,6 +3,7 @@ from typing import Any, Dict
 from app.models.base import BackchannelModel
 from app.models.baseline import BaselineModel
 from app.models.distilbert import DistilBertModel
+from app.models.distilbert_onnx import DistilBertOnnxModel
 
 
 class ModelFactory:
@@ -26,6 +27,8 @@ class ModelFactory:
             return BaselineModel.create_with_default_terms()
         elif model_type == "distilbert":
             return DistilBertModel.create_from_weights(threshold=threshold)
+        elif model_type == "distilbert-onnx":
+            return DistilBertOnnxModel.create_from_weights(threshold=threshold)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 

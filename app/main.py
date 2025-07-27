@@ -24,8 +24,8 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Backchannel Detection API")
 
     try:
-        # Use DistilBERT model by default
-        predictor = BackchannelPredictor.from_config({"type": "distilbert"})
+        # Use ONNX DistilBERT model for better performance
+        predictor = BackchannelPredictor.from_config({"type": "distilbert-onnx"})
 
         logger.info(f"Model loaded: {predictor.model.model_name}")
 

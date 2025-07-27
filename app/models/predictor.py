@@ -1,4 +1,6 @@
+import asyncio
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from app.config import settings
@@ -17,6 +19,7 @@ class BackchannelPredictor:
             )
 
         self.model = model
+        self._executor = ThreadPoolExecutor(max_workers=4)  # Adjust based on your needs
 
         if not self.model.is_ready():
             raise RuntimeError(f"Model {self.model.model_name} is not ready")
@@ -26,6 +29,28 @@ class BackchannelPredictor:
         start_time = time.perf_counter()
 
         result = self.model.predict(text, previous_utterance)
+
+        latency_ms = (time.perf_counter() - start_time) * 1000
+
+        return {
+            "is_backchannel": result.is_backchannel,
+            "confidence": result.confidence,
+            "model_used": result.model_name,
+            "latency_ms": latency_ms,
+            "metadata": result.metadata,
+        }
+
+    async def predict_async(
+        self, text: str, previous_utterance: Optional[str] = None
+    ) -> dict:
+        """Async version of predict that runs in thread pool"""
+        start_time = time.perf_counter()
+
+        # Run the model prediction in a thread pool
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            self._executor, self.model.predict, text, previous_utterance
+        )
 
         latency_ms = (time.perf_counter() - start_time) * 1000
 
@@ -62,3 +87,8 @@ class BackchannelPredictor:
         """Create predictor from configuration"""
         model = ModelFactory.create_model(config)
         return cls(model)
+
+    def __del__(self):
+        """Cleanup thread pool executor"""
+        if hasattr(self, "_executor"):
+            self._executor.shutdown(wait=False)

@@ -1,3 +1,4 @@
+import asyncio
 import time
 import uuid
 
@@ -64,7 +65,9 @@ async def predict_backchannel(
             )
 
             # Make prediction
-            result = predictor.predict(request.utterance, request.previous_utterance)
+            result = await predictor.predict_async(
+                request.utterance, request.previous_utterance
+            )
 
             # Log the prediction details
             log_prediction(
@@ -147,13 +150,13 @@ async def predict_backchannel_batch(
                 previous_utterances.append(req.previous_utterance)
 
             start_time = time.perf_counter()
-            # For now, we'll process each prediction individually to handle
-            # previous_utterance. This could be optimized for true batch processing
-            # in the future
-            results = []
+            # Process predictions concurrently using asyncio.gather
+            prediction_tasks = []
             for utterance, prev_utterance in zip(utterances, previous_utterances):
-                result = predictor.predict(utterance, prev_utterance)
-                results.append(result)
+                task = predictor.predict_async(utterance, prev_utterance)
+                prediction_tasks.append(task)
+
+            results = await asyncio.gather(*prediction_tasks)
             total_latency_ms = (time.perf_counter() - start_time) * 1000
 
             # Log batch metrics

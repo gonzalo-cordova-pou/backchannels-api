@@ -3,53 +3,52 @@ from pathlib import Path
 from typing import List, Optional
 
 import torch
-from transformers import DistilBertForSequenceClassification, DistilBertTokenizer
+from optimum.onnxruntime import ORTModelForSequenceClassification
+from transformers import AutoTokenizer
 
 from app.models.base import BackchannelModel, PredictionResult
-from app.models.constants import DISTILBERT_WEIGHTS_DIR, validate_weights_directory
+from app.models.constants import DISTILBERT_ONNX_WEIGHTS_DIR, validate_weights_directory
 from app.models.s3_loader import S3ModelLoader
 
 
-class DistilBertModel(BackchannelModel, S3ModelLoader):
-    """DistilBERT-based backchannel detection model"""
+class DistilBertOnnxModel(BackchannelModel, S3ModelLoader):
+    """ONNX-based DistilBERT backchannel detection model"""
 
     def __init__(
-        self, model_path: str = DISTILBERT_WEIGHTS_DIR, threshold: float = 0.5
+        self, model_path: str = DISTILBERT_ONNX_WEIGHTS_DIR, threshold: float = 0.5
     ):
         """
-        Initialize the DistilBERT model
+        Initialize the ONNX DistilBERT model
 
         Args:
-            model_path: Path to the model weights and tokenizer
+            model_path: Path to the ONNX model weights and tokenizer
             threshold: Classification threshold (0.0 to 1.0). Defaults to 0.5
         """
         self.model_path = Path(model_path)
-        self.model: Optional[DistilBertForSequenceClassification] = None
-        self.tokenizer: Optional[DistilBertTokenizer] = None
+        self.model: Optional[ORTModelForSequenceClassification] = None
+        self.tokenizer: Optional[AutoTokenizer] = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.threshold = max(0.0, min(1.0, threshold))  # Clip between 0.0 and 1.0
         super().__init__()  # Initialize S3ModelLoader
         self._load_model()
 
     def _load_model(self):
-        """Load the model and tokenizer from disk"""
+        """Load the ONNX model and tokenizer from disk"""
         try:
             # Load tokenizer
-            self.tokenizer = DistilBertTokenizer.from_pretrained(self.model_path)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
 
-            # Load model
-            self.model = DistilBertForSequenceClassification.from_pretrained(
+            # Load ONNX model
+            self.model = ORTModelForSequenceClassification.from_pretrained(
                 self.model_path
             )
-            self.model.to(self.device)
-            self.model.eval()
 
         except Exception as e:
             raise RuntimeError(
-                f"Failed to load DistilBERT model from {self.model_path}: {e}"
+                f"Failed to load ONNX DistilBERT model from {self.model_path}: {e}"
             )
 
-    def load_from_s3(self, model_type: str = "distilbert") -> bool:
+    def load_from_s3(self, model_type: str = "distilbert-onnx") -> bool:
         """
         Load model from S3 if local weights are not available
 
@@ -74,7 +73,7 @@ class DistilBertModel(BackchannelModel, S3ModelLoader):
     @property
     def model_name(self) -> str:
         """Return the name/identifier of the model"""
-        return "distilbert-backchannel"
+        return "distilbert-onnx-backchannel"
 
     def preprocess(self, text: str, previous_utterance: Optional[str] = None) -> str:
         """
@@ -130,10 +129,7 @@ class DistilBertModel(BackchannelModel, S3ModelLoader):
             padding=True,
         )
 
-        # Move inputs to device
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
-
-        # Get prediction
+        # Get prediction using ONNX model
         with torch.no_grad():
             if self.model is None:
                 raise RuntimeError("Model is not loaded")
@@ -156,6 +152,7 @@ class DistilBertModel(BackchannelModel, S3ModelLoader):
             "processed_text": processed_text,
             "raw_probabilities": probabilities[0].tolist(),
             "threshold_used": self.threshold,
+            "model_type": "onnx",
         }
 
         return PredictionResult(
@@ -198,16 +195,16 @@ class DistilBertModel(BackchannelModel, S3ModelLoader):
 
     @classmethod
     def create_from_weights(
-        cls, model_path: str = "app/models/weights", threshold: float = 0.5
-    ) -> "DistilBertModel":
+        cls, model_path: str = "app/models/weights_onnx", threshold: float = 0.5
+    ) -> "DistilBertOnnxModel":
         """
-        Create a DistilBERT model instance from the weights directory
+        Create an ONNX DistilBERT model instance from the weights directory
 
         Args:
-            model_path: Path to the model weights
+            model_path: Path to the ONNX model weights
             threshold: Classification threshold (0.0 to 1.0). Defaults to 0.5
 
         Returns:
-            DistilBertModel instance
+            DistilBertOnnxModel instance
         """
         return cls(model_path, threshold)
