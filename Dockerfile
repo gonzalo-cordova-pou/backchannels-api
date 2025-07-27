@@ -21,14 +21,14 @@ RUN pip install poetry
 # Copy poetry files
 COPY pyproject.toml poetry.lock ./
 
+# Copy application code first
+COPY app/ ./app/
+
 # Configure poetry to not create virtual environment (we're in a container)
 RUN poetry config virtualenvs.create false
 
 # Install dependencies (only main, no dev dependencies)
-RUN poetry install --only=main --no-dev
-
-# Copy application code only (exclude scripts for production)
-COPY app/ ./app/
+RUN poetry install --only=main
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app && \
