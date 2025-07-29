@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
@@ -20,7 +21,17 @@ class BackchannelPredictor:
             model = BaselineModel.create_with_default_terms()
 
         self.model = model
-        self._executor = ThreadPoolExecutor(max_workers=4)  # Adjust based on your needs
+
+        # Optimize thread pool for containerized environments
+        cpu_count = os.cpu_count() or 4
+        # Use conservative thread count for containers
+        max_workers = min(cpu_count * 2, 8)  # Conservative for containers
+
+        logger.info(
+            f"Using {max_workers} thread pool workers for model inference "
+            f"(CPU count: {cpu_count})"
+        )
+        self._executor = ThreadPoolExecutor(max_workers=max_workers)
 
         if not self.model.is_ready():
             raise RuntimeError(f"Model {self.model.model_name} is not ready")

@@ -24,6 +24,14 @@ services:
       # Mount model weights if they're large (uncomment if needed)
       # - ./app/models/weights:/app/app/models/weights
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G  # Increased memory for model loading
+          cpus: '2.0'  # 2 CPU cores for better throughput
+        reservations:
+          memory: 2G
+          cpus: '1.0'
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
